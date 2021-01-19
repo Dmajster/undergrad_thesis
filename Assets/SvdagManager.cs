@@ -31,13 +31,13 @@ namespace Assets
                 return;
             }
 
-            var inputBuffer = new ComputeBuffer(uniformVolume.VolumeCount(), sizeof(byte));
+            var inputBuffer = new ComputeBuffer(uniformVolume.VolumeCount(), sizeof(int));
             var inputDimensions = new Vector4(volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
             inputBuffer.SetData(uniformVolume.Volume);
 
             DebugInputData = uniformVolume.Volume; //TODO: Remove
 
-            var outputBuffer = new ComputeBuffer(uniformVolume.VolumeCount(), sizeof(byte));
+            var outputBuffer = new ComputeBuffer(uniformVolume.VolumeCount(), sizeof(int));
             var outputDimensions = inputDimensions / 2;
             
             

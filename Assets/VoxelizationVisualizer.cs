@@ -7,27 +7,27 @@ namespace Assets
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     class VoxelizationVisualizer : MonoBehaviour
     {
-        public static Mesh CreateDebugMesh(UniformVolume uniformVolume)
+        public static Mesh CreateDebugMesh(PackedUniformVolume packedUniformVolume)
         {
             int[] GetQuadIndicesArray(int i0, int i1, int i2, int i3)
             {
                 return new[]{
-                    i0,
-                    i1,
-                    i2,
-                    i2,
-                    i3,
-                    i0,
-                };
+                        i0,
+                        i1,
+                        i2,
+                        i2,
+                        i3,
+                        i0,
+                    };
             }
 
             var vertices = new List<Vector3>();
             var indices = new List<int>();
 
-            var voxelHalfScale = new float3(uniformVolume.VoxelSideLengthInMeters) / 2.0f;
+            var voxelHalfScale = packedUniformVolume.GetVolumeWorldScale() / packedUniformVolume.GetSideElementCount() / 2.0f;
 
             var index = 0;
-            var volumeDimensions = uniformVolume.VolumeDimensions();
+            var volumeDimensions = packedUniformVolume.GetVolumeDimensions();
 
             for (var y = 0; y < volumeDimensions.y; y++)
             {
@@ -35,10 +35,15 @@ namespace Assets
                 {
                     for (var z = 0; z < volumeDimensions.z; z++)
                     {
-                        if (uniformVolume.Volume[index])
+                        var position = new float3(x, y, z);
+                        var worldPosition = position * packedUniformVolume.WorldScaleInMeters;
+
+                        var packedIndex = index / 32;
+                        var bitIndex = index % 32;
+                        var isOccupied = ((1 << bitIndex) & packedUniformVolume.Data[packedIndex]) > 0;
+
+                        if (isOccupied)
                         {
-                            var volumePosition = new float3(x, y, z);
-                            var worldPosition = volumePosition * uniformVolume.VoxelSideLengthInMeters;
                             vertices.AddRange(new Vector3[] {
                                 worldPosition + new float3(-voxelHalfScale.x, -voxelHalfScale.y, -voxelHalfScale.z),
                                 worldPosition + new float3(-voxelHalfScale.x, -voxelHalfScale.y, +voxelHalfScale.z),
@@ -61,6 +66,7 @@ namespace Assets
                             indices.AddRange(GetQuadIndicesArray(vertexCount - 8, vertexCount - 4, vertexCount - 1, vertexCount - 5));
                             indices.AddRange(GetQuadIndicesArray(vertexCount - 7, vertexCount - 6, vertexCount - 2, vertexCount - 3));
                         }
+
                         index++;
                     }
                 }

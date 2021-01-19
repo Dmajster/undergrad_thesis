@@ -296,7 +296,7 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2048602742
+--- !u!1 &1081993987
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -304,22 +304,68 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2048602744}
-  - component: {fileID: 2048602743}
+  - component: {fileID: 1081993989}
+  - component: {fileID: 1081993988}
   m_Layer: 0
-  m_Name: Voxelization Area
+  m_Name: SvdagManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2048602743
+--- !u!114 &1081993988
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2048602742}
+  m_GameObject: {fileID: 1081993987}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2eb2dc127c9dd1c4fa7e48807b9a236c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ComputeShader: {fileID: 7200000, guid: d90059d7379fdd645b38b34c05a537ad, type: 3}
+  DebugInputData: 
+  DebugOutputData: 
+--- !u!4 &1081993989
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1081993987}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3.5577068, y: 4.4409924, z: 4.159818}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1593642506
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1593642508}
+  - component: {fileID: 1593642507}
+  m_Layer: 0
+  m_Name: Voxalizer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1593642507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1593642506}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4aac327e47bb5a84e93c3d914891b6f9, type: 3}
@@ -327,27 +373,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   RecreateVoxels: 1
   RecreateMesh: 1
-  uniformVolume:
-    VolumeDimensionsInMeters:
-      x: 0
-      y: 0
-      z: 0
-    VoxelSideLengthInMeters: 0.25
-    Volume: 
+  Reduce: 0
+  PackedUniformVolume:
+    WorldScaleInMeters: 0.25
+    Depth: 5
+    Data: 
   VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
---- !u!4 &2048602744
+--- !u!4 &1593642508
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2048602742}
+  m_GameObject: {fileID: 1593642506}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.5, y: 6.5, z: -0.5}
-  m_LocalScale: {x: 38, y: 16, z: 24}
+  m_LocalPosition: {x: -3.5, y: 0, z: -4.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 3
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2061552940
 PrefabInstance:
@@ -2245,6 +2289,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: sponza
+      objectReference: {fileID: 0}
+    - target: {fileID: -927199367670048503, guid: fd9c9f5c21a2ab040b16b2b6020f2bd2,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -908949160903485717, guid: fd9c9f5c21a2ab040b16b2b6020f2bd2,
         type: 3}

@@ -1,10 +1,10 @@
 ﻿#pragma kernel reduction
 
 float4 input_dimensions;
-RWStructuredBuffer<bool> input;
+RWStructuredBuffer<int> input;
 
 float4 output_dimensions;
-RWStructuredBuffer<bool> output;
+RWStructuredBuffer<int> output;
 
 int position_to_index(const uint3 position, const uint3 dimensions)
 {
