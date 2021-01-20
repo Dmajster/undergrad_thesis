@@ -322,12 +322,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1081993987}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2eb2dc127c9dd1c4fa7e48807b9a236c, type: 3}
+  m_Script: {fileID: 11500000, guid: 72bd91efaf5124543b606152686c6671, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ComputeShader: {fileID: 7200000, guid: d90059d7379fdd645b38b34c05a537ad, type: 3}
+  ComputeShader: {fileID: 7200000, guid: 357ef4fce1c28e542bb0b765bbb41213, type: 3}
   DebugInputData: 
   DebugOutputData: 
+  VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!4 &1081993989
 Transform:
   m_ObjectHideFlags: 0
@@ -368,14 +369,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 1593642506}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4aac327e47bb5a84e93c3d914891b6f9, type: 3}
+  m_Script: {fileID: 11500000, guid: 6369862b66cf22c45a2508a83f2562d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   RecreateVoxels: 1
-  RecreateMesh: 1
-  Reduce: 0
+  RecreateMesh: 0
+  Reduce: 1
   PackedUniformVolume:
-    WorldScaleInMeters: 0.25
+    WorldScaleInMeters: 0.1
     Depth: 5
     Data: 
   VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
@@ -387,7 +388,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1593642506}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -3.5, y: 0, z: -4.5}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}

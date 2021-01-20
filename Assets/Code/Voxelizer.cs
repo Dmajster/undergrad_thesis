@@ -1,7 +1,7 @@
 ﻿using Unity.Mathematics;
 using UnityEngine;
 
-namespace Assets
+namespace Assets.Code
 {
     public class Voxelizer : MonoBehaviour
     {
@@ -34,7 +34,7 @@ namespace Assets
             if (Reduce)
             {
                 Reduce = false;
-                //FindObjectOfType<SvdagManager>().Execute(UniformVolume);
+                FindObjectOfType<SvdagManager>().Execute(PackedUniformVolume);
             }
         }
 
@@ -55,7 +55,7 @@ namespace Assets
                     for (var z = 0; z < volumeDimensions.z; z++)
                     {
                         var position = new float3(x, y, z);
-                        var worldPosition = position * PackedUniformVolume.WorldScaleInMeters;
+                        var worldPosition = (float3)transform.position + position * PackedUniformVolume.WorldScaleInMeters;
 
                         if (Physics.OverlapBox(worldPosition, voxelHalfScale).Length > 0)
                         {
@@ -75,7 +75,7 @@ namespace Assets
         {
             var scale = Vector3.one * PackedUniformVolume.GetSideElementCount() * PackedUniformVolume.WorldScaleInMeters;
 
-            Gizmos.DrawWireCube(transform.position, scale);
+            Gizmos.DrawWireCube(transform.position + scale / 2, scale);
         }
     }
 }

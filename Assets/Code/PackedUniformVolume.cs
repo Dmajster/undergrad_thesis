@@ -2,7 +2,7 @@
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Assets
+namespace Assets.Code
 {
     [Serializable]
     public struct PackedUniformVolume
@@ -18,7 +18,7 @@ namespace Assets
             Depth = depth;
             Data = new uint[0];
 
-            var dataCount = (int)math.ceil(GetVolumeElementCount() / 32.0f);
+            var dataCount = (int)math.ceil((float)GetVolumeElementCount() / sizeof(int));
 
             Data = new uint[dataCount];
 

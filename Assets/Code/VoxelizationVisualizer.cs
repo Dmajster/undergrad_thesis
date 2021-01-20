@@ -2,7 +2,7 @@
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Assets
+namespace Assets.Code
 {
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     class VoxelizationVisualizer : MonoBehaviour

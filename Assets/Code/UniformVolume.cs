@@ -1,6 +1,6 @@
 ﻿using Unity.Mathematics;
 
-namespace Assets
+namespace Assets.Code
 {
     [System.Serializable]
     public struct UniformVolume
