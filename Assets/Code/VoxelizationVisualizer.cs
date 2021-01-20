@@ -36,7 +36,7 @@ namespace Assets.Code
                     for (var z = 0; z < volumeDimensions.z; z++)
                     {
                         var position = new float3(x, y, z);
-                        var worldPosition = position * packedUniformVolume.WorldScaleInMeters;
+                        var worldPosition = position * packedUniformVolume.VoxelWorldScaleInMeters;
 
                         var packedIndex = index / 32;
                         var bitIndex = index % 32;

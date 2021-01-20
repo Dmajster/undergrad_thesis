@@ -7,27 +7,25 @@ namespace Assets.Code
     [Serializable]
     public struct PackedUniformVolume
     {
-        public float WorldScaleInMeters;
+        public float VoxelWorldScaleInMeters;
 
         public int Depth;
         public uint[] Data;
 
-        public PackedUniformVolume(float worldScaleInMeters, int depth)
+        public PackedUniformVolume(float voxelWorldScaleInMeters, int depth)
         {
-            WorldScaleInMeters = worldScaleInMeters;
+            VoxelWorldScaleInMeters = voxelWorldScaleInMeters;
             Depth = depth;
             Data = new uint[0];
 
-            var dataCount = (int)math.ceil((float)GetVolumeElementCount() / sizeof(int));
+            var dataCount = (int)math.ceil((float)GetVolumeElementCount() / sizeof(int) / 8);
 
             Data = new uint[dataCount];
-
-            Debug.Log($"Volume world scale: '{GetVolumeWorldScale()}'");
         }
 
         public float3 GetVolumeWorldScale()
         {
-            return new float3(GetSideElementCount() * WorldScaleInMeters);
+            return new float3(GetSideElementCount() * VoxelWorldScaleInMeters);
         }
 
         public int GetSideElementCount()

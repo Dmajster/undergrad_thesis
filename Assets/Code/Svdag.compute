@@ -1,141 +1,16 @@
 ﻿#pragma kernel reduction
 
-float4 packed_input_dimensions;
+int packed_input_count;
 StructuredBuffer<int> packed_input;
 
-float4 packed_output_dimensions;
+int packed_output_count;
 RWStructuredBuffer<int> packed_output;
 
-uint position_to_index(const uint3 position, const uint3 dimensions)
-{
-	return position.y * (dimensions.x * dimensions.z) + position.z * dimensions.x + position.x;
-}
-
-int get_occupation_pair_from_packed_value(const int packed_value, const int index)
-{
-	return 3 << index * 2 & packed_value;
-}
-
-uint packed_int_reduce_to_packed_short(const uint packed_input_position)
-{
-	// Find neighboring packed values on y and z axis as we are only packing values on x axis
-	const int pack_y0_z0 = packed_input[position_to_index(packed_input_position, packed_input_dimensions)];
-	const int pack_y0_z1 = packed_input[position_to_index(packed_input_position + uint3(0, 0, 1), packed_input_dimensions)];
-	const int pack_y1_z0 = packed_input[position_to_index(packed_input_position + uint3(0, 1, 0), packed_input_dimensions)];
-	const int pack_y1_z1 = packed_input[position_to_index(packed_input_position + uint3(0, 1, 1), packed_input_dimensions)];
-
-	int output = 0;
-	for (int i = 0; i < 16; i++)
-	{
-		const int concatenated_pairs = 
-			get_occupation_pair_from_packed_value(pack_y0_z0, i) +
-			get_occupation_pair_from_packed_value(pack_y0_z1, i) << 2 +
-			get_occupation_pair_from_packed_value(pack_y1_z0, i) << 4 +
-		    get_occupation_pair_from_packed_value(pack_y1_z1, i) << 6;
-
-		if (concatenated_pairs == 0 || concatenated_pairs == 255) {
-			output |= 1 << i;
-		}
-	}
-
-	return output;
-}
-
-// Reduces two consecutive packed ints into a single one.
 [numthreads(1, 1, 1)]
-void reduction(const uint3 packed_output_position : SV_DispatchThreadID)
+void reduction(const uint packed_output_index : SV_DispatchThreadID)
 {
-
-	int packed_input_position = packed_output_position;
-	packed_input_position.x *= 2;
-	
-	packed_output[position_to_index(packed_output_position, packed_output_dimensions)] = position_to_index(packed_input_position, packed_input_dimensions);
-	
-	//packed_output[position_to_index(packed_output_position, packed_output_dimensions)] =
-	//	packed_int_reduce_to_packed_short(packed_output_position * 2) +							// This produces the first 16b of the new int
-	//	packed_int_reduce_to_packed_short(packed_output_position * 2 + uint3(0, 0, 1)) << 16;	// This produces the second 16b of the new int
+	for(uint bit = 0; bit < 32; bit++ )
+	{
+		const uint bit_index = packed_output_index * 32 + bit;
+	} 
 }
-
-
-
-
-
-
-//if (any(packed_input_position >= packed_input_dimensions))
-//{
-//	return;
-//}
-
-
-
-//
-
-//const int pack_y0_z0 = packed_input_value(packed_input_position);
-//const int pack_y0_z1 = packed_input_value(packed_input_position + uint3(0, 0, 1));
-//const int pack_y1_z0 = packed_input_value(packed_input_position + uint3(0, 1, 0));
-//const int pack_y1_z1 = packed_input_value(packed_input_position + uint3(0, 1, 1));
-//
-//for (int i = 0; i < 16; i++)
-//{
-//	const int pair_value_y0_z0 = get_occupation_pair_from_packed_value(pack_y0_z0, i);
-//	const int pair_value_y0_z1 = get_occupation_pair_from_packed_value(pack_y0_z1, i);
-//	const int pair_value_y1_z0 = get_occupation_pair_from_packed_value(pack_y1_z0, i);
-//	const int pair_value_y1_z1 = get_occupation_pair_from_packed_value(pack_y1_z1, i);
-//}
-
-
-
-
-
-
-
-
-
-
-//// Prevent access to unreserved memory
-//if (any(output_position >= output_dimensions))
-//{
-//	return;
-//}
-
-//const uint3 input_position = output_position * 2;
-
-//// Prevent access to unreserved memory
-//if (any(input_position >= input_dimensions))
-//{
-//	return;
-//}
-
-//// Check occupation status of the source voxels children
-//const int output_value =
-//	input_value(input_position + int3(0, 0, 0)) &
-//	input_value(input_position + int3(0, 0, 1)) << 1 &
-//	input_value(input_position + int3(1, 0, 0)) << 2 &
-//	input_value(input_position + int3(1, 0, 1)) << 3 &
-//	input_value(input_position + int3(0, 1, 0)) << 4 &
-//	input_value(input_position + int3(0, 1, 1)) << 5 &
-//	input_value(input_position + int3(1, 1, 0)) << 6 &
-//	input_value(input_position + int3(1, 1, 1)) << 7;
-
-//// If all children are occupied or empty then this branch is not interesting
-//if (output_value == 0 || output_value == 255) {
-//	return;
-//}
-
-//output[position_to_index(output_position, output_dimensions)] = true;
-
-
-//int position_to_index(const uint3 position, const uint3 dimensions)
-//{
-//	return position.y * dimensions.x * dimensions.z + position.z * dimensions.x + position.x;
-//}
-//
-//int packed_input_value(const uint3 position)
-//{
-//	return packed_input[position_to_index(position, packed_input_dimensions)];
-//}
-//
-//int get_occupation_pair_from_packed_value(const int packed_value, const int index)
-//{
-//	return 0b11 << index * 2 & packed_value;
-//}

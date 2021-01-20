@@ -373,11 +373,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   RecreateVoxels: 1
-  RecreateMesh: 0
-  Reduce: 1
+  RecreateMesh: 1
+  Reduce: 0
   PackedUniformVolume:
     WorldScaleInMeters: 0.1
-    Depth: 5
+    Depth: 6
     Data: 
   VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!4 &1593642508
