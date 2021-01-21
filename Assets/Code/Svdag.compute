@@ -1,16 +1,57 @@
 ﻿#pragma kernel reduction
 
-int packed_input_count;
-StructuredBuffer<int> packed_input;
+int3 src_packed_volume_bit_dimensions;
+StructuredBuffer<int> src_packed_volume;
 
-int packed_output_count;
-RWStructuredBuffer<int> packed_output;
+int3 dst_packed_volume_bit_dimensions;
+RWStructuredBuffer<int> dst_packed_volume;
 
-[numthreads(1, 1, 1)]
-void reduction(const uint packed_output_index : SV_DispatchThreadID)
+uint bit_position_to_bit_index(const uint3 bit_position, const uint3 bit_volume_dimensions)
 {
-	for(uint bit = 0; bit < 32; bit++ )
-	{
-		const uint bit_index = packed_output_index * 32 + bit;
-	} 
+    return bit_position.y * bit_volume_dimensions.x * bit_volume_dimensions.z +
+        bit_position.z * bit_volume_dimensions.x + bit_position.x;
+}
+
+uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
+{
+	const uint src_bit_index = bit_position_to_bit_index(src_bit_position, src_packed_volume_bit_dimensions);
+
+	const uint packed_index = src_bit_index / 32;
+	const uint packed_index_value = src_packed_volume[packed_index];
+
+	const uint bit_consecutive_index = src_bit_index % 32;
+	const uint bit_set = (packed_index_value & (1u << bit_consecutive_index)) > 0;
+	const uint bool_byte = (bit_set ? 1u : 0u);
+
+    return bool_byte;
+}
+
+void set_bit_to_dst_volume_from_bool_byte(const uint3 dst_bit_position, const uint is_occupied_bool_byte)
+{
+	const uint dst_bit_index = bit_position_to_bit_index(dst_bit_position, dst_packed_volume_bit_dimensions);
+	const uint packed_index = dst_bit_index / 32;
+	const uint bit_consecutive_index = dst_bit_index % 32;
+
+    if (is_occupied_bool_byte > 0)
+    {
+		InterlockedOr(dst_packed_volume[packed_index], 1u << bit_consecutive_index);
+    }
+}
+
+[numthreads(8, 8, 8)]
+void reduction(const uint3 dst_bit_position : SV_DispatchThreadID)
+{
+    const uint3 src_bit_position = dst_bit_position * 2;
+
+	const int children = (get_bit_from_src_volume_as_bool_byte(src_bit_position) |
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 0, 0)) << 1) |
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(0, 0, 1)) << 4) |
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 0, 1)) << 5) |
+
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(0, 1, 0)) << 2) |
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 1, 0)) << 3) |
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(0, 1, 1)) << 6) |
+	    (get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 1, 1)) << 7));
+
+    set_bit_to_dst_volume_from_bool_byte(dst_bit_position, children);
 }

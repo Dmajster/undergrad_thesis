@@ -9,14 +9,18 @@ namespace Assets.Code
     {
         public bool RecreateVoxels;
         public bool RecreateMesh;
-        public bool Reduce;
+        public bool ReduceMeshCpu;
+        public bool ReduceMeshGpu;
 
         public PackedUniformVolume PackedUniformVolume;
 
         public Material VisualizerMaterial;
 
-        public int PackedIndex;
-        public int ReductionBitIndex;
+        public uint[] SrcPackedVolume;
+        public uint3 SrcPackedVolumeBitDimensions;
+
+        public uint[] DstPackedVolume;
+        public uint3 DstPackedVolumeBitDimensions;
 
         private void Update()
         {
@@ -37,20 +41,62 @@ namespace Assets.Code
                 visualizerGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
             }
 
-            if (Reduce)
+            if (ReduceMeshCpu)
             {
-                Reduce = false;
+                ReduceMeshCpu = false;
 
-                var newPackedUniformVolume = ReduceCpu(PackedUniformVolume);
+                SrcPackedVolume = PackedUniformVolume.Data;
+                SrcPackedVolumeBitDimensions = (uint3)PackedUniformVolume.GetVolumeDimensions();
 
-                var mesh = VoxelizationVisualizer.CreateDebugMesh(newPackedUniformVolume);
+                DstPackedVolume = new uint[SrcPackedVolume.Length / 2];
+                DstPackedVolumeBitDimensions = SrcPackedVolumeBitDimensions / 2;
 
-                var visualizerGameObject = new GameObject("New Voxelization Visualizer");
-                visualizerGameObject.AddComponent<MeshFilter>().mesh = mesh;
-                visualizerGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
-                //Reduce = false;
-                //FindObjectOfType<SvdagManager>().Execute(PackedUniformVolume);
+                Reduce(SrcPackedVolume, SrcPackedVolumeBitDimensions, DstPackedVolume, DstPackedVolumeBitDimensions);
+
+                var srcPackedUniformVolume = new PackedUniformVolume(0.1f, 5)
+                {
+                    Data = SrcPackedVolume
+                };
+
+                var srcMesh = VoxelizationVisualizer.CreateDebugMesh(srcPackedUniformVolume);
+                var srcGameObject = new GameObject("srcPackedUniformVolume mesh");
+                srcGameObject.AddComponent<MeshFilter>().mesh = srcMesh;
+                srcGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
+
+                var dstPackedUniformVolume = new PackedUniformVolume(0.2f, 4)
+                {
+                    Data = DstPackedVolume
+                };
+
+                var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
+                var dstGameObject = new GameObject("dstPackedUniformVolume mesh");
+                dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
+                dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
             }
+
+            if (ReduceMeshGpu)
+            {
+                ReduceMeshGpu = false;
+
+                var startTime = Time.realtimeSinceStartup;
+                var dstPackedUniformVolume = FindObjectOfType<SvdagManager>().Execute(PackedUniformVolume);
+                var endTime = Time.realtimeSinceStartup;
+
+                Debug.Log($"Gpu time: {endTime-startTime}s");
+
+                var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
+                var dstGameObject = new GameObject("dstPackedUniformVolume mesh");
+                dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
+                dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
+            }
+        }
+        private void OnDrawGizmos()
+        {
+            //Gizmos.color = Color.blue;
+            //DrawVolume(SrcPackedVolume, SrcPackedVolumeBitDimensions, 0.1f);
+
+            //Gizmos.color = Color.green;
+            //DrawVolume(DstPackedVolume, DstPackedVolumeBitDimensions, 0.2f);
         }
 
         private void CreateVoxelData()
@@ -58,7 +104,8 @@ namespace Assets.Code
             PackedUniformVolume =
                 new PackedUniformVolume(PackedUniformVolume.VoxelWorldScaleInMeters, PackedUniformVolume.Depth);
 
-            var voxelHalfScale = PackedUniformVolume.GetVolumeWorldScale() / PackedUniformVolume.GetSideElementCount() / 2.0f;
+            var voxelHalfScale = PackedUniformVolume.GetVolumeWorldScale() / PackedUniformVolume.GetSideElementCount() /
+                                 2.0f;
 
             var index = 0;
             var volumeDimensions = PackedUniformVolume.GetVolumeDimensions();
@@ -70,7 +117,8 @@ namespace Assets.Code
                     for (var x = 0; x < volumeDimensions.x; x++)
                     {
                         var position = new float3(x, y, z);
-                        var worldPosition = (float3)transform.position + position * PackedUniformVolume.VoxelWorldScaleInMeters;
+                        var worldPosition = (float3)transform.position +
+                                            position * PackedUniformVolume.VoxelWorldScaleInMeters;
 
                         if (Physics.OverlapBox(worldPosition, voxelHalfScale).Length > 0)
                         {
@@ -88,199 +136,92 @@ namespace Assets.Code
             Debug.Log($"Volume dimensions: {PackedUniformVolume.GetVolumeDimensions()}");
         }
 
-        private PackedUniformVolume ReduceCpu(PackedUniformVolume packedUniformVolume)
+        private void Reduce(uint[] srcPackedVolume, uint3 srcPackedVolumeBitDimensions, uint[] dstPackedVolume, uint3 dstPackedVolumeBitDimensions)
         {
-            var inputPackedData = packedUniformVolume.Data;
-            var inputVolumeDimensions = packedUniformVolume.GetVolumeDimensions();
-
-            var outputPackedData = new uint[inputPackedData.Length / 2];
-
-            for (var outputPackedDataIndex = 0; outputPackedDataIndex < outputPackedData.Length; outputPackedDataIndex++)
+            for (var y = 0u; y < dstPackedVolumeBitDimensions.y; y++)
             {
-                int inputPackedDataIndex0 = outputPackedDataIndex * 2;
-                int inputPackedDataIndex1 = outputPackedDataIndex * 2 + 1;
-
-                var sideBitCount = inputVolumeDimensions.x;
-                var areaBitCount = inputVolumeDimensions.x * inputVolumeDimensions.z;
-
-                var outputPackedDataValue = 0u;
-                for (var bit = 0; bit < 32; bit++)
+                for (var z = 0u; z < dstPackedVolumeBitDimensions.z; z++)
                 {
-                    var bitIndex = inputPackedDataIndex0 * 32 + bit;
-
-                    var occupancyPackedValue = (byte)(
-                        packedUniformVolume.GetBit(bitIndex) |
-                        (packedUniformVolume.GetBit(bitIndex + 1) << 1) |
-                        (packedUniformVolume.GetBit(bitIndex + sideBitCount) << 2) |
-                        (packedUniformVolume.GetBit(bitIndex + sideBitCount + 1) << 3) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount) << 4) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount + 1) << 5) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount + sideBitCount) << 6) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount + sideBitCount + 1) << 7));
-
-                    if (occupancyPackedValue > 0 && occupancyPackedValue < 255)
+                    for (var x = 0u; x < dstPackedVolumeBitDimensions.x; x++)
                     {
-                        outputPackedDataValue |= 1u << bit;
+                        var dstBitPosition = new uint3(x, y, z);
+                        var srcBitPosition = dstBitPosition * 2;
+
+                        var children = (byte)(GetBitFromSrcVolumeAsBoolByte(srcBitPosition) |
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(1, 0, 0)) << 1) |
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(0, 0, 1)) << 4) |
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(1, 0, 1)) << 5) |
+
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(0, 1, 0)) << 2) |
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(1, 1, 0)) << 3) |
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(0, 1, 1)) << 6) |
+                                       (GetBitFromSrcVolumeAsBoolByte(srcBitPosition + new uint3(1, 1, 1)) << 7));
+
+                        SetBitToDstVolumeFromBoolByte(dstBitPosition, children);
                     }
                 }
+            }
 
-                for (var bit = 0; bit < 32; bit++)
+            byte GetBitFromSrcVolumeAsBoolByte(uint3 srcBitPosition)
+            {
+                var srcBitIndex = BitPositionToBitIndex(srcBitPosition, srcPackedVolumeBitDimensions);
+
+                var packedIndex = srcBitIndex / 32;
+                var packedIndexValue = srcPackedVolume[packedIndex];
+
+                var bitConsecutiveIndex = (int)srcBitIndex % 32;
+                var bitSet = (packedIndexValue & (1u << bitConsecutiveIndex)) > 0;
+                var boolByte = (byte)(bitSet ? 1u : 0u);
+
+                return boolByte;
+            }
+
+            void SetBitToDstVolumeFromBoolByte(uint3 dstBitPosition, byte isOccupiedBoolByte)
+            {
+                var dstBitIndex = BitPositionToBitIndex(dstBitPosition, dstPackedVolumeBitDimensions);
+
+                var packedIndex = dstBitIndex / 32;
+
+                var bitConsecutiveIndex = (int)dstBitIndex % 32;
+
+                if (isOccupiedBoolByte > 0)
                 {
-                    var bitIndex = inputPackedDataIndex1 * 32 + bit;
+                    //ATOMIC ON GPU
+                    dstPackedVolume[packedIndex] |= 1u << bitConsecutiveIndex;
+                }
+            }
+        }
 
-                    var occupancyPackedValue = (byte)(
-                        packedUniformVolume.GetBit(bitIndex) |
-                        (packedUniformVolume.GetBit(bitIndex + 1) << 1) |
-                        (packedUniformVolume.GetBit(bitIndex + sideBitCount) << 2) |
-                        (packedUniformVolume.GetBit(bitIndex + sideBitCount + 1) << 3) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount) << 4) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount + 1) << 5) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount + sideBitCount) << 6) |
-                        (packedUniformVolume.GetBit(bitIndex + areaBitCount + sideBitCount + 1) << 7));
+        private static uint BitPositionToBitIndex(uint3 bitPosition, uint3 bitVolumeDimensions)
+        {
+            return bitPosition.y * bitVolumeDimensions.x * bitVolumeDimensions.z +
+                   bitPosition.z * bitVolumeDimensions.x + bitPosition.x;
+        }
 
-                    if (occupancyPackedValue > 0 && occupancyPackedValue < 255)
+        private static void DrawVolume(uint[] data, uint3 dimensions, float bitSizeInMeters)
+        {
+            for (var y = 0u; y < dimensions.y; y++)
+            {
+                for (var z = 0u; z < dimensions.z; z++)
+                {
+                    for (var x = 0u; x < dimensions.x; x++)
                     {
-                        outputPackedDataValue |= 1u << bit << 16;
+                        var bitPosition = new uint3(x, y, z);
+
+                        var bitIndex = BitPositionToBitIndex(bitPosition, dimensions);
+
+                        var packedIndex = (int)math.floor( bitIndex / 32.0);
+                        var packedIndexValue = data[packedIndex];
+
+                        var bitConsecutiveIndex = (int)bitIndex % 32;
+
+                        if ((packedIndexValue & (1 << bitConsecutiveIndex)) > 0)
+                        {
+                            Gizmos.DrawCube(new float3(bitPosition) * bitSizeInMeters, new float3(bitSizeInMeters));
+                        }
                     }
                 }
-
-                outputPackedData[outputPackedDataIndex] = outputPackedDataValue;
             }
-
-            return new PackedUniformVolume(packedUniformVolume.VoxelWorldScaleInMeters * 2, packedUniformVolume.Depth - 1)
-            {
-                Data = outputPackedData
-            };
-        }
-
-
-        private void OnDrawGizmos()
-        {
-            for (var packedIndex = 0; packedIndex < PackedUniformVolume.Data.Length / 2; packedIndex+=2)
-            {
-                Gizmos.color = Color.green;
-                uint packedOutputHalfValue0 = Something(packedIndex * 2);
-
-                Gizmos.color = Color.blue;
-                uint packedOutputHalfValue1 = Something((packedIndex + 1) * 2);
-
-                uint packedOutputValue = packedOutputHalfValue0 | (packedOutputHalfValue1 << 16);
-            }
-        }
-
-        private ushort Something(int packedIndex)
-        {
-            ushort reducedShort = 0;
-
-            for (var reductionBitIndex = 0; reductionBitIndex < 16; reductionBitIndex++)
-            {
-                var bitIndex = packedIndex * 32 + reductionBitIndex * 2; //THIS
-
-                var byteOctant = PackedUniformVolume.ByteOctant(bitIndex);
-
-                reducedShort |= (ushort)(1u << reductionBitIndex);
-
-                if (byteOctant > 0 && byteOctant < 255)
-                {
-                    DrawBit(bitIndex);
-                }
-            }
-
-            return reducedShort;
-        }
-
-        private void DrawBit(int bitIndex)
-        {
-            var voxelScale = new float3(PackedUniformVolume.VoxelWorldScaleInMeters);
-
-            var bitPosition = PackedUniformVolume.GetBitPosition(bitIndex);
-
-            var bitWorldPosition = (float3)transform.position +
-                                   new Vector3(bitPosition.x, bitPosition.y, bitPosition.z) * voxelScale;
-
-
-            Gizmos.DrawWireCube(bitWorldPosition, voxelScale);
         }
     }
 }
-
-//var volumeScale = PackedUniformVolume.GetVolumeWorldScale();
-
-//Gizmos.color = Color.white;
-//Gizmos.DrawWireCube((float3)transform.position + volumeScale / 2, volumeScale);
-
-//for (var bit = 0; bit < 32; bit++)
-//{
-//    var bitIndex = PackedIndex * 32 + bit;
-
-//    Gizmos.color = Color.blue;
-//    DrawBit(bitIndex);
-//}
-
-//var testBitIndex = PackedIndex * 32 + ReductionBitIndex * 2;
-//var volumeDimensions = PackedUniformVolume.GetVolumeDimensions();
-
-//var sideBitCount = volumeDimensions.x;
-//var areaBitCount = volumeDimensions.x * volumeDimensions.z;
-
-//var testedBitIndices = new[]
-//{
-//    testBitIndex,
-//    testBitIndex + 1,
-//    testBitIndex + sideBitCount,
-//    testBitIndex + sideBitCount + 1,
-//    testBitIndex + areaBitCount,
-//    testBitIndex + areaBitCount + 1,
-//    testBitIndex + areaBitCount + sideBitCount,
-//    testBitIndex + areaBitCount + sideBitCount + 1
-//};
-
-//for (var i = 0; i < testedBitIndices.Length; i++)
-//{
-//    Gizmos.color = Color.red;
-
-//    var testedBitIndex = testedBitIndices[i];
-
-//    if (PackedUniformVolume.GetBit(testedBitIndex))
-//    {
-//        DrawBit(testedBitIndex);
-//    }
-//}
-
-
-
-//var outputPackedData = new uint[PackedUniformVolume.Data.Length / 2];
-
-////for (var outputPackedDataIndex = 0; outputPackedDataIndex < 1; outputPackedDataIndex++)
-////{
-//int inputPackedDataIndex0 = PackedIndex * 2;
-
-//var inputVolumeDimensions = PackedUniformVolume.GetVolumeDimensions();
-//var sideBitCount = inputVolumeDimensions.x;
-//var areaBitCount = inputVolumeDimensions.x * inputVolumeDimensions.z;
-
-//var outputPackedDataValue = 0u;
-////for (var bit = 0; bit < 32; bit++)
-////{
-////var bitIndex = inputPackedDataIndex0 * 32 + bit;
-//var bitIndex = inputPackedDataIndex0 * 32 + ReductionBitIndex;
-
-//var bitIndices = new[]
-//{
-//    bitIndex,
-//    bitIndex + 1,
-//    bitIndex + sideBitCount,
-//    bitIndex + sideBitCount + 1,
-//    bitIndex + areaBitCount,
-//    bitIndex + areaBitCount + 1,
-//    bitIndex + areaBitCount + sideBitCount,
-//    bitIndex + areaBitCount + sideBitCount + 1
-//};
-//foreach (var index in bitIndices)
-//{
-//    DrawBit(index);
-//}
-////}
-
-////outputPackedData[outputPackedDataIndex] = outputPackedDataValue;
-////}
