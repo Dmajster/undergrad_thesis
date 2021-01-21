@@ -31,16 +31,17 @@ namespace Assets.Code
 
             for (var y = 0; y < volumeDimensions.y; y++)
             {
-                for (var x = 0; x < volumeDimensions.x; x++)
+                for (var z = 0; z < volumeDimensions.z; z++)
                 {
-                    for (var z = 0; z < volumeDimensions.z; z++)
+                    for (var x = 0; x < volumeDimensions.x; x++)
                     {
                         var position = new float3(x, y, z);
                         var worldPosition = position * packedUniformVolume.VoxelWorldScaleInMeters;
 
                         var packedIndex = index / 32;
                         var bitIndex = index % 32;
-                        var isOccupied = ((1 << bitIndex) & packedUniformVolume.Data[packedIndex]) > 0;
+
+                        var isOccupied = (packedUniformVolume.Data[packedIndex] & (1u << bitIndex)) > 0;
 
                         if (isOccupied)
                         {
