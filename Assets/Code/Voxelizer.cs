@@ -79,15 +79,15 @@ namespace Assets.Code
                 ReduceMeshGpu = false;
 
                 var startTime = Time.realtimeSinceStartup;
-                var dstPackedUniformVolume = FindObjectOfType<SvdagManager>().Execute(PackedUniformVolume);
+                var dstPackedUniformVolume = FindObjectOfType<SvdagManager>().Reduce(PackedUniformVolume);
                 var endTime = Time.realtimeSinceStartup;
 
                 Debug.Log($"Gpu time: {endTime-startTime}s");
 
-                var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
-                var dstGameObject = new GameObject("dstPackedUniformVolume mesh");
-                dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
-                dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
+                //var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
+                //var dstGameObject = new GameObject("dstPackedUniformVolume mesh");
+                //dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
+                //dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
             }
         }
         private void OnDrawGizmos()

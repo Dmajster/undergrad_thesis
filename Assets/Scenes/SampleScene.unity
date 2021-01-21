@@ -326,9 +326,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ComputeShader: {fileID: 7200000, guid: 357ef4fce1c28e542bb0b765bbb41213, type: 3}
-  DebugInputData: 
-  DebugOutputData: 
-  VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!4 &1081993989
 Transform:
   m_ObjectHideFlags: 0
@@ -373,13 +370,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   RecreateVoxels: 1
-  RecreateMesh: 1
-  Reduce: 0
+  RecreateMesh: 0
+  ReduceMeshCpu: 0
+  ReduceMeshGpu: 1
   PackedUniformVolume:
-    WorldScaleInMeters: 0.1
+    VoxelWorldScaleInMeters: 0.1
     Depth: 6
     Data: 
   VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
+  SrcPackedVolume: 
+  SrcPackedVolumeBitDimensions:
+    x: 0
+    y: 0
+    z: 0
+  DstPackedVolume: 
+  DstPackedVolumeBitDimensions:
+    x: 0
+    y: 0
+    z: 0
 --- !u!4 &1593642508
 Transform:
   m_ObjectHideFlags: 0
