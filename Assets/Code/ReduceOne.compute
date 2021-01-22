@@ -17,7 +17,7 @@ uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
 {
 	const uint src_bit_index = bit_position_to_bit_index(src_bit_position, src_packed_volume_bit_dimensions);
 
-	const uint packed_index = ceil(src_bit_index / 32);
+	const uint packed_index = src_bit_index / 32;
 	const uint packed_index_value = src_packed_volume[packed_index];
 
 	const uint bit_consecutive_index = src_bit_index % 32;
@@ -30,7 +30,7 @@ uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
 void set_bit_to_dst_volume_from_bool_byte(const uint3 dst_bit_position, const uint is_occupied_bool_byte)
 {
 	const uint dst_bit_index = bit_position_to_bit_index(dst_bit_position, dst_packed_volume_bit_dimensions);
-	const uint packed_index = ceil(dst_bit_index / 32);
+	const uint packed_index = dst_bit_index / 32;
 	const uint bit_consecutive_index = dst_bit_index % 32;
 
 	if (is_occupied_bool_byte > 0)

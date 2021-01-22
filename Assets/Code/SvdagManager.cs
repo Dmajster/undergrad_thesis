@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -84,8 +85,6 @@ namespace Assets.Code
                 bitCount += PackedUniformVolume.GetVolumeBitCount(i);
             }
 
-            Debug.Log($"bit count: {bitCount}");
-
             var dataCount = (int)math.ceil(bitCount / 32.0);
 
             // Setup an buffer that will contain all the reduction layers and fill it with the finest layer values
@@ -101,8 +100,7 @@ namespace Assets.Code
             {
                 // Set the src volume to the dst volume for next iteration
                 var srcPackedVolumeStartOffsetBitIndex = dstPackedVolumeStartOffsetBitIndex;
-                Debug.Log($"src bit offset: {srcPackedVolumeStartOffsetBitIndex} int: {srcPackedVolumeStartOffsetBitIndex / 32.0}");
-
+               
                 // Assign the dimensions of the source volume
                 var srcPackedVolumeBitDimensions = PackedUniformVolume.GetVolumeBitDimensions(i);
                 _reduceComputeShader.SetInts("src_packed_volume_bit_dimensions", srcPackedVolumeBitDimensions.x, srcPackedVolumeBitDimensions.y, srcPackedVolumeBitDimensions.z);
@@ -116,8 +114,7 @@ namespace Assets.Code
                 _reduceComputeShader.SetInts("dst_packed_volume_bit_dimensions", dstPackedVolumeBitDimensions.x, dstPackedVolumeBitDimensions.y, dstPackedVolumeBitDimensions.z);
                 // Increment destination offset so we write to the area reserved for the next layer
                 dstPackedVolumeStartOffsetBitIndex += PackedUniformVolume.GetVolumeBitCount(i);
-                Debug.Log($"dst bit offset: {dstPackedVolumeStartOffsetBitIndex} int: {dstPackedVolumeStartOffsetBitIndex / 32.0}");
-
+                
                 _reduceComputeShader.SetInt("dst_packed_volume_start_offset_bit_index", dstPackedVolumeStartOffsetBitIndex);
 
 
@@ -132,13 +129,33 @@ namespace Assets.Code
                 );
             }
 
-            DebugReductionData = new uint[dataCount];
+            //Collect all the reduction data from the gpu
+            var reducedPackedVolumes = new uint[dataCount];
+            packedVolumes.GetData(reducedPackedVolumes);
 
-            packedVolumes.GetData(DebugReductionData);
+            var packedVolumeList = new List<PackedUniformVolume>();
+            var voxelWorldScaleInMeters = packedUniformVolume.VoxelWorldScaleInMeters;
+
+            var bitOffset = 0;
+
+            for (var i = packedUniformVolume.Depth; i > 0; i--)
+            {
+                bitCount = PackedUniformVolume.GetVolumeBitCount(i);
+                var intCount = (int)math.ceil(bitCount / 32.0);
+                var intOffset = (int)math.ceil(bitOffset / 32.0);
+                packedVolumeList.Add(new PackedUniformVolume(voxelWorldScaleInMeters, i)
+                {
+                    Data = reducedPackedVolumes.Skip(intOffset).Take(intCount).ToArray()
+                });
+
+                bitOffset += bitCount;
+                
+                voxelWorldScaleInMeters *= 2;
+            }
 
             packedVolumes.Dispose();
 
-            return new List<PackedUniformVolume>();
+            return packedVolumeList;
         }
     }
 }

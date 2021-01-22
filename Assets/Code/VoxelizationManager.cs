@@ -35,7 +35,6 @@ namespace Assets.Code
             if (RecreateVoxels)
             {
                 RecreateVoxels = false;
-                CreateVoxelData();
 
                 var startTime = Time.realtimeSinceStartup;
                 CreateVoxelData();
@@ -108,7 +107,19 @@ namespace Assets.Code
             {
                 ReduceGpu = false;
 
-                _svdagManager.Reduce(PackedUniformVolume);
+                var startTime = Time.realtimeSinceStartup;
+                var reducedPackedUniformVolumes = _svdagManager.Reduce(PackedUniformVolume);
+                var endTime = Time.realtimeSinceStartup;
+
+                Debug.Log($"Reduce GPU time: {endTime - startTime}s");
+
+                foreach (var reducedPackedUniformVolume in reducedPackedUniformVolumes)
+                {
+                    var dstMesh = VoxelizationVisualizer.CreateDebugMesh(reducedPackedUniformVolume);
+                    var dstGameObject = new GameObject("Reduced GPU debug mesh");
+                    dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
+                    dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
+                }
             }
         }
         private void OnDrawGizmos()
