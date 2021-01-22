@@ -24,10 +24,10 @@ namespace Assets.Code
             var vertices = new List<Vector3>();
             var indices = new List<int>();
 
-            var voxelHalfScale = packedUniformVolume.GetVolumeWorldScale() / packedUniformVolume.GetSideElementCount() / 2.0f;
+            var voxelHalfScale = packedUniformVolume.GetVolumeWorldScale() / packedUniformVolume.GetSideBitCount() / 2.0f;
 
             var index = 0;
-            var volumeDimensions = packedUniformVolume.GetVolumeDimensions();
+            var volumeDimensions = packedUniformVolume.GetVolumeBitDimensions();
 
             for (var y = 0; y < volumeDimensions.y; y++)
             {

@@ -5,12 +5,13 @@ using UnityEngine;
 
 namespace Assets.Code
 {
-    public class Voxelizer : MonoBehaviour
+    public class VoxelizationManager : MonoBehaviour
     {
         public bool RecreateVoxels;
-        public bool RecreateMesh;
-        public bool ReduceMeshCpu;
-        public bool ReduceMeshGpu;
+        public bool CreateDebugMesh;
+        public bool ReduceOneCpu;
+        public bool ReduceOneGpu;
+        public bool ReduceGpu;
 
         public PackedUniformVolume PackedUniformVolume;
 
@@ -22,31 +23,44 @@ namespace Assets.Code
         public uint[] DstPackedVolume;
         public uint3 DstPackedVolumeBitDimensions;
 
+        private SvdagManager _svdagManager;
+
+        private void Start()
+        {
+            _svdagManager = FindObjectOfType<SvdagManager>();
+        }
+
         private void Update()
         {
             if (RecreateVoxels)
             {
                 RecreateVoxels = false;
                 CreateVoxelData();
+
+                var startTime = Time.realtimeSinceStartup;
+                CreateVoxelData();
+                var endTime = Time.realtimeSinceStartup;
+
+                Debug.Log($"Create voxel data time: {endTime - startTime}s");
             }
 
-            if (RecreateMesh)
+            if (CreateDebugMesh)
             {
-                RecreateMesh = false;
+                CreateDebugMesh = false;
 
                 var mesh = VoxelizationVisualizer.CreateDebugMesh(PackedUniformVolume);
 
-                var visualizerGameObject = new GameObject("Voxelization Visualizer");
+                var visualizerGameObject = new GameObject("Debug mesh");
                 visualizerGameObject.AddComponent<MeshFilter>().mesh = mesh;
                 visualizerGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
             }
 
-            if (ReduceMeshCpu)
+            if (ReduceOneCpu)
             {
-                ReduceMeshCpu = false;
+                ReduceOneCpu = false;
 
                 SrcPackedVolume = PackedUniformVolume.Data;
-                SrcPackedVolumeBitDimensions = (uint3)PackedUniformVolume.GetVolumeDimensions();
+                SrcPackedVolumeBitDimensions = (uint3)PackedUniformVolume.GetVolumeBitDimensions();
 
                 DstPackedVolume = new uint[SrcPackedVolume.Length / 2];
                 DstPackedVolumeBitDimensions = SrcPackedVolumeBitDimensions / 2;
@@ -59,7 +73,7 @@ namespace Assets.Code
                 };
 
                 var srcMesh = VoxelizationVisualizer.CreateDebugMesh(srcPackedUniformVolume);
-                var srcGameObject = new GameObject("srcPackedUniformVolume mesh");
+                var srcGameObject = new GameObject("Reduce one CPU source debug mesh");
                 srcGameObject.AddComponent<MeshFilter>().mesh = srcMesh;
                 srcGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
 
@@ -69,25 +83,32 @@ namespace Assets.Code
                 };
 
                 var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
-                var dstGameObject = new GameObject("dstPackedUniformVolume mesh");
+                var dstGameObject = new GameObject("Reduce one CPU destination debug mesh");
                 dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
                 dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
             }
 
-            if (ReduceMeshGpu)
+            if (ReduceOneGpu)
             {
-                ReduceMeshGpu = false;
+                ReduceOneGpu = false;
 
                 var startTime = Time.realtimeSinceStartup;
-                var dstPackedUniformVolume = FindObjectOfType<SvdagManager>().Reduce(PackedUniformVolume);
+                var dstPackedUniformVolume = _svdagManager.ReduceOnce(PackedUniformVolume);
                 var endTime = Time.realtimeSinceStartup;
 
-                Debug.Log($"Gpu time: {endTime-startTime}s");
+                Debug.Log($"Reduce one GPU time: {endTime-startTime}s");
 
-                //var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
-                //var dstGameObject = new GameObject("dstPackedUniformVolume mesh");
-                //dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
-                //dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
+                var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
+                var dstGameObject = new GameObject("Reduce one GPU debug mesh");
+                dstGameObject.AddComponent<MeshFilter>().mesh = dstMesh;
+                dstGameObject.AddComponent<MeshRenderer>().sharedMaterial = VisualizerMaterial;
+            }
+
+            if (ReduceGpu)
+            {
+                ReduceGpu = false;
+
+                _svdagManager.Reduce(PackedUniformVolume);
             }
         }
         private void OnDrawGizmos()
@@ -104,11 +125,11 @@ namespace Assets.Code
             PackedUniformVolume =
                 new PackedUniformVolume(PackedUniformVolume.VoxelWorldScaleInMeters, PackedUniformVolume.Depth);
 
-            var voxelHalfScale = PackedUniformVolume.GetVolumeWorldScale() / PackedUniformVolume.GetSideElementCount() /
+            var voxelHalfScale = PackedUniformVolume.GetVolumeWorldScale() / PackedUniformVolume.GetSideBitCount() /
                                  2.0f;
 
             var index = 0;
-            var volumeDimensions = PackedUniformVolume.GetVolumeDimensions();
+            var volumeDimensions = PackedUniformVolume.GetVolumeBitDimensions();
 
             for (var y = 0; y < volumeDimensions.y; y++)
             {
@@ -133,7 +154,7 @@ namespace Assets.Code
                 }
             }
 
-            Debug.Log($"Volume dimensions: {PackedUniformVolume.GetVolumeDimensions()}");
+            Debug.Log($"Volume dimensions: {PackedUniformVolume.GetVolumeBitDimensions()}");
         }
 
         private void Reduce(uint[] srcPackedVolume, uint3 srcPackedVolumeBitDimensions, uint[] dstPackedVolume, uint3 dstPackedVolumeBitDimensions)

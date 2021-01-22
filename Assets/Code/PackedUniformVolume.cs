@@ -1,7 +1,5 @@
 ﻿using System;
 using Unity.Mathematics;
-using UnityEditor;
-using UnityEngine;
 
 namespace Assets.Code
 {
@@ -19,9 +17,24 @@ namespace Assets.Code
             Depth = depth;
             Data = new uint[0];
 
-            var dataCount = (int)math.ceil((float)GetVolumeElementCount() / 32);
+            var dataCount = (int)math.ceil(GetVolumeBitCount() / 32.0);
 
             Data = new uint[dataCount];
+        }
+
+        public static int GetVolumeBitCount(int depth)
+        {
+            return (int)math.pow(8, depth);
+        }
+
+        public static int GetSideBitCount(int depth)
+        {
+            return (int)math.pow(2, depth);
+        }
+
+        public static int3 GetVolumeBitDimensions(int depth)
+        {
+            return new int3(GetSideBitCount(depth));
         }
 
         public int GetBit(int bitIndex)
@@ -47,7 +60,7 @@ namespace Assets.Code
 
         public int3 GetBitPosition(int index)
         {
-            var volumeDimensions = GetVolumeDimensions();
+            var volumeDimensions = GetVolumeBitDimensions();
 
             return new int3(
                 index % volumeDimensions.x,
@@ -56,9 +69,9 @@ namespace Assets.Code
             );
         }
 
-        public byte ByteOctant(int bitIndex)
+        public byte GetNeighborOctantByte(int bitIndex)
         {
-            var inputVolumeDimensions = GetVolumeDimensions();
+            var inputVolumeDimensions = GetVolumeBitDimensions();
             var sideBitCount = inputVolumeDimensions.x;
             var areaBitCount = inputVolumeDimensions.x * inputVolumeDimensions.z;
             var bitIndices = new[]
@@ -76,9 +89,9 @@ namespace Assets.Code
             byte occupancy = 0;
             for (var bit = 0; bit < bitIndices.Length; bit++)
             {
-                var bitOccupied = (byte) GetBit(bitIndices[bit]);
+                var bitOccupied = (byte)GetBit(bitIndices[bit]);
 
-                occupancy |= (byte) (bitOccupied << bit);
+                occupancy |= (byte)(bitOccupied << bit);
             }
 
             return occupancy;
@@ -86,22 +99,22 @@ namespace Assets.Code
 
         public float3 GetVolumeWorldScale()
         {
-            return new float3(GetSideElementCount() * VoxelWorldScaleInMeters);
+            return new float3(GetSideBitCount() * VoxelWorldScaleInMeters);
         }
 
-        public int GetSideElementCount()
+        public int GetSideBitCount()
         {
-            return (int)math.pow(2, Depth);
+            return GetSideBitCount(Depth);
         }
 
-        public int GetVolumeElementCount()
+        public int GetVolumeBitCount()
         {
-            return (int)math.pow(8, Depth);
+            return GetVolumeBitCount(Depth);
         }
 
-        public int3 GetVolumeDimensions()
+        public int3 GetVolumeBitDimensions()
         {
-            return new int3(GetSideElementCount());
+            return GetVolumeBitDimensions(Depth);
         }
     }
 }

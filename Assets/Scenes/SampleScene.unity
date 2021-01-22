@@ -372,12 +372,12 @@ MonoBehaviour:
   RecreateVoxels: 1
   RecreateMesh: 0
   ReduceMeshCpu: 0
-  ReduceMeshGpu: 1
+  ReduceMeshGpu: 0
   PackedUniformVolume:
     VoxelWorldScaleInMeters: 0.1
-    Depth: 6
+    Depth: 5
     Data: 
-  VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
+  VisualizerMaterial: {fileID: 0}
   SrcPackedVolume: 
   SrcPackedVolumeBitDimensions:
     x: 0

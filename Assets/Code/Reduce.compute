@@ -1,10 +1,12 @@
-﻿#pragma kernel reduce_one
+﻿#pragma kernel reduce
 
 int3 src_packed_volume_bit_dimensions;
-StructuredBuffer<int> src_packed_volume;
+int src_packed_volume_start_offset_bit_index;
 
 int3 dst_packed_volume_bit_dimensions;
-RWStructuredBuffer<int> dst_packed_volume;
+int dst_packed_volume_start_offset_bit_index;
+
+RWStructuredBuffer<int> packed_volumes;
 
 uint bit_position_to_bit_index(const uint3 bit_position, const uint3 bit_volume_dimensions)
 {
@@ -15,10 +17,10 @@ uint bit_position_to_bit_index(const uint3 bit_position, const uint3 bit_volume_
 
 uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
 {
-	const uint src_bit_index = bit_position_to_bit_index(src_bit_position, src_packed_volume_bit_dimensions);
+	const uint src_bit_index = src_packed_volume_start_offset_bit_index + bit_position_to_bit_index(src_bit_position, src_packed_volume_bit_dimensions);
 
 	const uint packed_index = ceil(src_bit_index / 32);
-	const uint packed_index_value = src_packed_volume[packed_index];
+	const uint packed_index_value = packed_volumes[packed_index];
 
 	const uint bit_consecutive_index = src_bit_index % 32;
 	const bool is_bit_set = (packed_index_value & (1u << bit_consecutive_index)) > 0;
@@ -29,33 +31,23 @@ uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
 
 void set_bit_to_dst_volume_from_bool_byte(const uint3 dst_bit_position, const uint is_occupied_bool_byte)
 {
-	const uint dst_bit_index = bit_position_to_bit_index(dst_bit_position, dst_packed_volume_bit_dimensions);
+	const uint dst_bit_index = dst_packed_volume_start_offset_bit_index + bit_position_to_bit_index(dst_bit_position, dst_packed_volume_bit_dimensions);
 	const uint packed_index = ceil(dst_bit_index / 32);
 	const uint bit_consecutive_index = dst_bit_index % 32;
 
 	if (is_occupied_bool_byte > 0)
 	{
-		InterlockedOr(dst_packed_volume[packed_index], 1u << bit_consecutive_index);
+		InterlockedOr(packed_volumes[packed_index], 1u << bit_consecutive_index);
 	}
 }
 
-// This method is from the paper 'Integer Hash Function' by Thomas Wang, Jan 1997
-uint wang_hash(uint seed)
-{
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
-	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-	return seed;
-}
-
 [numthreads(8, 8, 8)]
-void reduce_one(const uint3 dst_bit_position : SV_DispatchThreadID)
+void reduce(const uint3 dst_bit_position : SV_DispatchThreadID)
 {
 	const uint3 src_bit_position = dst_bit_position * 2;
 
-	const int children = (get_bit_from_src_volume_as_bool_byte(src_bit_position) |
+	const int children =
+		(get_bit_from_src_volume_as_bool_byte(src_bit_position) |
 		(get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 0, 0)) << 1) |
 		(get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(0, 0, 1)) << 4) |
 		(get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 0, 1)) << 5) |

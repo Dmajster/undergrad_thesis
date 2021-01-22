@@ -6,23 +6,18 @@ namespace Assets.Code
 {
     public class SvdagManager : MonoBehaviour
     {
-        public ComputeShader ComputeShader;
+        [SerializeField] private ComputeShader _reduceComputeShader;
+        [SerializeField] private ComputeShader _reduceOneComputeShader;
 
-        private int _reductionKernelId;
+        private int _reduceOneKernelId;
+        private int _reduceKernelId;
 
-        private uint WangHash(uint seed)
-        {
-            seed = (seed ^ 61) ^ (seed >> 16);
-            seed *= 9;
-            seed ^= (seed >> 4);
-            seed *= 0x27d4eb2d;
-            seed ^= (seed >> 15);
-            return seed;
-        }
+        public uint[] DebugReductionData;
 
         private void Start()
         {
-            _reductionKernelId = ComputeShader.FindKernel("reduction");
+            _reduceOneKernelId = _reduceOneComputeShader.FindKernel("reduce_one");
+            _reduceKernelId = _reduceComputeShader.FindKernel("reduce");
         }
 
         public PackedUniformVolume ReduceOnce(PackedUniformVolume srcPackedUniformVolume)
@@ -31,10 +26,10 @@ namespace Assets.Code
 
             var srcPackedVolume = new ComputeBuffer(srcPackedVolumeElementCount, sizeof(uint));
             srcPackedVolume.SetData(srcPackedUniformVolume.Data);
-            ComputeShader.SetBuffer(_reductionKernelId, "src_packed_volume", srcPackedVolume);
+            _reduceOneComputeShader.SetBuffer(_reduceOneKernelId, "src_packed_volume", srcPackedVolume);
 
-            var srcPackedVolumeDimensions = srcPackedUniformVolume.GetVolumeDimensions();
-            ComputeShader.SetInts("src_packed_volume_bit_dimensions",
+            var srcPackedVolumeDimensions = srcPackedUniformVolume.GetVolumeBitDimensions();
+            _reduceOneComputeShader.SetInts("src_packed_volume_bit_dimensions",
                 srcPackedVolumeDimensions.x,
                 srcPackedVolumeDimensions.y,
                 srcPackedVolumeDimensions.z);
@@ -43,10 +38,10 @@ namespace Assets.Code
 
             var dstPackedVolumeElementCount = math.max(1, srcPackedVolumeElementCount / 2);
             var dstPackedVolume = new ComputeBuffer(dstPackedVolumeElementCount, sizeof(uint));
-            ComputeShader.SetBuffer(_reductionKernelId, "dst_packed_volume", dstPackedVolume);
+            _reduceOneComputeShader.SetBuffer(_reduceOneKernelId, "dst_packed_volume", dstPackedVolume);
 
             var dstPackedVolumeDimensions = srcPackedVolumeDimensions / 2;
-            ComputeShader.SetInts("dst_packed_volume_bit_dimensions",
+            _reduceOneComputeShader.SetInts("dst_packed_volume_bit_dimensions",
                 dstPackedVolumeDimensions.x,
                 dstPackedVolumeDimensions.y,
                 dstPackedVolumeDimensions.z);
@@ -54,8 +49,8 @@ namespace Assets.Code
 
 
             var dispatchVolumeDimensions = math.max(new int3(1), dstPackedVolumeDimensions / 8);
-            ComputeShader.Dispatch(
-                _reductionKernelId,
+            _reduceOneComputeShader.Dispatch(
+                _reduceOneKernelId,
                 dispatchVolumeDimensions.x,
                 dispatchVolumeDimensions.y,
                 dispatchVolumeDimensions.z
@@ -79,61 +74,69 @@ namespace Assets.Code
             };
         }
 
-        public List<PackedUniformVolume> Reduce(PackedUniformVolume srcPackedUniformVolume)
+        public List<PackedUniformVolume> Reduce(PackedUniformVolume packedUniformVolume)
         {
-            var srcPackedVolumeElementCount = srcPackedUniformVolume.Data.Length;
+            // Calculate the size of the array containing all the voxel data for all layers
+            var bitCount = 0;
 
-            var srcPackedVolume = new ComputeBuffer(srcPackedVolumeElementCount, sizeof(uint));
-            srcPackedVolume.SetData(srcPackedUniformVolume.Data);
-            ComputeShader.SetBuffer(_reductionKernelId, "src_packed_volume", srcPackedVolume);
-
-            var srcPackedVolumeDimensions = srcPackedUniformVolume.GetVolumeDimensions();
-            ComputeShader.SetInts("src_packed_volume_bit_dimensions",
-                srcPackedVolumeDimensions.x,
-                srcPackedVolumeDimensions.y,
-                srcPackedVolumeDimensions.z);
-
-            while (srcPackedUniformVolume.GetSideElementCount() > 1)
+            for (var i = 0; i <= packedUniformVolume.Depth; i++)
             {
-                var dstPackedVolumeElementCount = math.max(1, srcPackedVolumeElementCount / 2);
-                var dstPackedVolume = new ComputeBuffer(dstPackedVolumeElementCount, sizeof(uint));
-                ComputeShader.SetBuffer(_reductionKernelId, "dst_packed_volume", dstPackedVolume);
+                bitCount += PackedUniformVolume.GetVolumeBitCount(i);
+            }
 
-                var dstPackedVolumeDimensions = srcPackedVolumeDimensions / 2;
-                ComputeShader.SetInts("dst_packed_volume_bit_dimensions",
-                    dstPackedVolumeDimensions.x,
-                    dstPackedVolumeDimensions.y,
-                    dstPackedVolumeDimensions.z);
+            Debug.Log($"bit count: {bitCount}");
 
-                Debug.Log("Ran");
+            var dataCount = (int)math.ceil(bitCount / 32.0);
 
-                var dispatchVolumeDimensions = math.max(new int3(1), dstPackedVolumeDimensions / 8);
-                ComputeShader.Dispatch(
-                    _reductionKernelId,
+            // Setup an buffer that will contain all the reduction layers and fill it with the finest layer values
+            // To start the reduction process
+            var packedVolumes = new ComputeBuffer(dataCount, sizeof(uint));
+            packedVolumes.SetData(packedUniformVolume.Data);
+            _reduceComputeShader.SetBuffer(_reduceKernelId, "packed_volumes", packedVolumes);
+
+            // Bit offsets to use when reading from src layer or writing to the dst layer 
+            var dstPackedVolumeStartOffsetBitIndex = 0;
+
+            for (var i = packedUniformVolume.Depth; i > 0; i--)
+            {
+                // Set the src volume to the dst volume for next iteration
+                var srcPackedVolumeStartOffsetBitIndex = dstPackedVolumeStartOffsetBitIndex;
+                Debug.Log($"src bit offset: {srcPackedVolumeStartOffsetBitIndex} int: {srcPackedVolumeStartOffsetBitIndex / 32.0}");
+
+                // Assign the dimensions of the source volume
+                var srcPackedVolumeBitDimensions = PackedUniformVolume.GetVolumeBitDimensions(i);
+                _reduceComputeShader.SetInts("src_packed_volume_bit_dimensions", srcPackedVolumeBitDimensions.x, srcPackedVolumeBitDimensions.y, srcPackedVolumeBitDimensions.z);
+                // Assign the offset to use when reading bits from the src layer
+                _reduceComputeShader.SetInt("src_packed_volume_start_offset_bit_index", srcPackedVolumeStartOffsetBitIndex);
+
+
+
+                // Assign dimensions of the destination volume
+                var dstPackedVolumeBitDimensions = srcPackedVolumeBitDimensions / 2;
+                _reduceComputeShader.SetInts("dst_packed_volume_bit_dimensions", dstPackedVolumeBitDimensions.x, dstPackedVolumeBitDimensions.y, dstPackedVolumeBitDimensions.z);
+                // Increment destination offset so we write to the area reserved for the next layer
+                dstPackedVolumeStartOffsetBitIndex += PackedUniformVolume.GetVolumeBitCount(i);
+                Debug.Log($"dst bit offset: {dstPackedVolumeStartOffsetBitIndex} int: {dstPackedVolumeStartOffsetBitIndex / 32.0}");
+
+                _reduceComputeShader.SetInt("dst_packed_volume_start_offset_bit_index", dstPackedVolumeStartOffsetBitIndex);
+
+
+
+                // Dispatch to the GPU. /8 is used for better utilization of the GPU
+                var dispatchVolumeDimensions = math.max(new int3(1), dstPackedVolumeBitDimensions / 8);
+                _reduceComputeShader.Dispatch(
+                    _reduceKernelId,
                     dispatchVolumeDimensions.x,
                     dispatchVolumeDimensions.y,
                     dispatchVolumeDimensions.z
                 );
-
-
-
-                srcPackedVolume = dstPackedVolume;
-                ComputeShader.SetBuffer(_reductionKernelId, "src_packed_volume", srcPackedVolume);
-
-                srcPackedVolumeDimensions = dstPackedVolumeDimensions;
-                ComputeShader.SetInts("src_packed_volume_bit_dimensions",
-                    srcPackedVolumeDimensions.x,
-                    srcPackedVolumeDimensions.y,
-                    srcPackedVolumeDimensions.z);
-
-                srcPackedUniformVolume = new PackedUniformVolume(
-                        srcPackedUniformVolume.VoxelWorldScaleInMeters * 2,
-                    srcPackedUniformVolume.Depth - 1);
-
-                dstPackedVolume.Dispose();
             }
 
-            srcPackedVolume.Dispose();
+            DebugReductionData = new uint[dataCount];
+
+            packedVolumes.GetData(DebugReductionData);
+
+            packedVolumes.Dispose();
 
             return new List<PackedUniformVolume>();
         }
