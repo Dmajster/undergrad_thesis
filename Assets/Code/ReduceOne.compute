@@ -39,17 +39,6 @@ void set_bit_to_dst_volume_from_bool_byte(const uint3 dst_bit_position, const ui
 	}
 }
 
-// This method is from the paper 'Integer Hash Function' by Thomas Wang, Jan 1997
-uint wang_hash(uint seed)
-{
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
-	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-	return seed;
-}
-
 [numthreads(8, 8, 8)]
 void reduce_one(const uint3 dst_bit_position : SV_DispatchThreadID)
 {

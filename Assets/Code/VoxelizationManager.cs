@@ -58,7 +58,7 @@ namespace Assets.Code
             {
                 ReduceOneCpu = false;
 
-                SrcPackedVolume = PackedUniformVolume.Data;
+                SrcPackedVolume = PackedUniformVolume.Voxels;
                 SrcPackedVolumeBitDimensions = (uint3)PackedUniformVolume.GetVolumeBitDimensions();
 
                 DstPackedVolume = new uint[SrcPackedVolume.Length / 2];
@@ -68,7 +68,7 @@ namespace Assets.Code
 
                 var srcPackedUniformVolume = new PackedUniformVolume(0.1f, 5)
                 {
-                    Data = SrcPackedVolume
+                    Voxels = SrcPackedVolume
                 };
 
                 var srcMesh = VoxelizationVisualizer.CreateDebugMesh(srcPackedUniformVolume);
@@ -78,7 +78,7 @@ namespace Assets.Code
 
                 var dstPackedUniformVolume = new PackedUniformVolume(0.2f, 4)
                 {
-                    Data = DstPackedVolume
+                    Voxels = DstPackedVolume
                 };
 
                 var dstMesh = VoxelizationVisualizer.CreateDebugMesh(dstPackedUniformVolume);
@@ -157,7 +157,7 @@ namespace Assets.Code
                             var packedIndex = index / 32;
                             var bitIndex = index % 32;
 
-                            PackedUniformVolume.Data[packedIndex] |= 1u << bitIndex;
+                            PackedUniformVolume.Voxels[packedIndex] |= 1u << bitIndex;
                         }
 
                         index++;

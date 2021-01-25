@@ -6,18 +6,26 @@ int src_packed_volume_start_offset_bit_index;
 int3 dst_packed_volume_bit_dimensions;
 int dst_packed_volume_start_offset_bit_index;
 
-RWStructuredBuffer<int> packed_volumes;
+RWStructuredBuffer<uint> packed_volumes;
 
-uint bit_position_to_bit_index(const uint3 bit_position, const uint3 bit_volume_dimensions)
+int3 src_hashed_volume_dimensions;
+int src_hashed_volume_start_offset_index;
+
+int3 dst_hashed_volume_dimensions;
+int dst_hashed_volume_start_offset_index;
+
+RWStructuredBuffer<uint> hashed_volumes;
+
+uint position_to_index(const uint3 position, const uint3 volume_dimensions)
 {
 	return
-		bit_position.y * bit_volume_dimensions.x * bit_volume_dimensions.z +
-		bit_position.z * bit_volume_dimensions.x + bit_position.x;
+		position.y * volume_dimensions.x * volume_dimensions.z +
+		position.z * volume_dimensions.x + position.x;
 }
 
 uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
 {
-	const uint src_bit_index = src_packed_volume_start_offset_bit_index + bit_position_to_bit_index(src_bit_position, src_packed_volume_bit_dimensions);
+	const uint src_bit_index = src_packed_volume_start_offset_bit_index + position_to_index(src_bit_position, src_packed_volume_bit_dimensions);
 
 	const uint packed_index = ceil(src_bit_index / 32);
 	const uint packed_index_value = packed_volumes[packed_index];
@@ -31,7 +39,7 @@ uint get_bit_from_src_volume_as_bool_byte(const uint3 src_bit_position)
 
 void set_bit_to_dst_volume_from_bool_byte(const uint3 dst_bit_position, const uint is_occupied_bool_byte)
 {
-	const uint dst_bit_index = dst_packed_volume_start_offset_bit_index + bit_position_to_bit_index(dst_bit_position, dst_packed_volume_bit_dimensions);
+	const uint dst_bit_index = dst_packed_volume_start_offset_bit_index + position_to_index(dst_bit_position, dst_packed_volume_bit_dimensions);
 	const uint packed_index = ceil(dst_bit_index / 32);
 	const uint bit_consecutive_index = dst_bit_index % 32;
 
@@ -41,10 +49,46 @@ void set_bit_to_dst_volume_from_bool_byte(const uint3 dst_bit_position, const ui
 	}
 }
 
-[numthreads(8, 8, 8)]
-void reduce(const uint3 dst_bit_position : SV_DispatchThreadID)
+// This is adapted for HLSL from C++ Boost library's boost::hash_combine() method
+uint hash_combine(uint hash_left, const uint hash_right) {
+	hash_left ^= hash_right + 0x9e3779b9 + (hash_left << 6) + (hash_left >> 2);
+	return hash_left;
+}
+
+// This method is from the paper 'Integer Hash Function' by Thomas Wang, Jan 1997
+uint wang_hash(uint seed)
 {
-	const uint3 src_bit_position = dst_bit_position * 2;
+	seed = (seed ^ 61) ^ (seed >> 16);
+	seed *= 9;
+	seed = seed ^ (seed >> 4);
+	seed *= 0x27d4eb2d;
+	seed = seed ^ (seed >> 15);
+	return seed;
+}
+
+uint get_hash_from_src_hash_volume(const uint3 src_hash_position)
+{
+	const uint src_hash_index = src_hashed_volume_start_offset_index + position_to_index(src_hash_position, src_hashed_volume_dimensions);
+	return hashed_volumes[src_hash_index];
+}
+
+void set_hash_to_src_hash_volume(const uint3 src_hash_position, const uint hash_value)
+{
+	const uint src_hash_index = src_hashed_volume_start_offset_index + position_to_index(src_hash_position, src_hashed_volume_dimensions);
+	hashed_volumes[src_hash_index] = hash_value;
+}
+
+void set_hash_to_dst_hash_volume(const uint3 dst_hash_position, const uint hash_value)
+{
+	const uint dst_hash_index = dst_hashed_volume_start_offset_index + position_to_index(dst_hash_position, dst_hashed_volume_dimensions);
+	hashed_volumes[dst_hash_index] = hash_value;
+}
+
+[numthreads(8, 8, 8)]
+void reduce(const uint3 work_position : SV_DispatchThreadID)
+{
+	const uint3 dst_bit_position = work_position;
+	const uint3 src_bit_position = work_position * 2;
 
 	const int children =
 		(get_bit_from_src_volume_as_bool_byte(src_bit_position) |
@@ -58,4 +102,27 @@ void reduce(const uint3 dst_bit_position : SV_DispatchThreadID)
 		(get_bit_from_src_volume_as_bool_byte(src_bit_position + uint3(1, 1, 1)) << 7));
 
 	set_bit_to_dst_volume_from_bool_byte(dst_bit_position, children);
+
+
+	const uint3 src_hash_position = work_position * 2;
+	const uint3 dst_hash_position = work_position;
+
+	if (src_hashed_volume_start_offset_index == 0)
+	{
+		set_hash_to_dst_hash_volume(dst_hash_position, wang_hash(children));
+	}
+	else
+	{
+		uint hash_value = get_hash_from_src_hash_volume(src_hash_position);
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(1, 0, 0)));
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(0, 0, 1)));
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(1, 0, 1)));
+
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(0, 1, 0)));
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(1, 1, 0)));
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(0, 1, 1)));
+		hash_value = hash_combine(hash_value, get_hash_from_src_hash_volume(src_hash_position + uint3(1, 1, 1)));
+
+		set_hash_to_dst_hash_volume(dst_hash_position, hash_value);
+	}
 }

@@ -9,17 +9,19 @@ namespace Assets.Code
         public float VoxelWorldScaleInMeters;
 
         public int Depth;
-        public uint[] Data;
+        public uint[] Voxels;
+        public uint[] Hashes;
 
         public PackedUniformVolume(float voxelWorldScaleInMeters, int depth)
         {
             VoxelWorldScaleInMeters = voxelWorldScaleInMeters;
             Depth = depth;
-            Data = new uint[0];
+            Voxels = new uint[0];
+            Hashes = new uint[0];
 
             var dataCount = (int)math.ceil(GetVolumeBitCount() / 32.0);
 
-            Data = new uint[dataCount];
+            Voxels = new uint[dataCount];
         }
 
         public static int GetVolumeBitCount(int depth)
@@ -42,12 +44,12 @@ namespace Assets.Code
             var packedValueIndex = bitIndex / 32;
             var packedValueBitIndex = bitIndex % 32;
 
-            if (packedValueIndex >= Data.Length)
+            if (packedValueIndex >= Voxels.Length)
             {
                 return 0;
             }
 
-            return (Data[packedValueIndex] & (1u << packedValueBitIndex)) > 0 ? 1 : 0;
+            return (Voxels[packedValueIndex] & (1u << packedValueBitIndex)) > 0 ? 1 : 0;
         }
 
         public void SetBit(int bitIndex)
@@ -55,7 +57,7 @@ namespace Assets.Code
             var packedValueIndex = bitIndex / 32;
             var packedValueBitIndex = bitIndex % 32;
 
-            Data[packedValueIndex] |= (1u << packedValueBitIndex);
+            Voxels[packedValueIndex] |= (1u << packedValueBitIndex);
         }
 
         public int3 GetBitPosition(int index)

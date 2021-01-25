@@ -329,7 +329,7 @@ MonoBehaviour:
     type: 3}
   _reduceOneComputeShader: {fileID: 7200000, guid: 357ef4fce1c28e542bb0b765bbb41213,
     type: 3}
-  DebugReductionData: 
+  DEBUG: []
 --- !u!4 &1081993989
 Transform:
   m_ObjectHideFlags: 0
@@ -377,11 +377,12 @@ MonoBehaviour:
   CreateDebugMesh: 0
   ReduceOneCpu: 0
   ReduceOneGpu: 0
-  ReduceGpu: 0
+  ReduceGpu: 1
   PackedUniformVolume:
     VoxelWorldScaleInMeters: 0.1
     Depth: 5
-    Data: 
+    Voxels: 
+    Hashes: 
   VisualizerMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
   SrcPackedVolume: 
   SrcPackedVolumeBitDimensions:

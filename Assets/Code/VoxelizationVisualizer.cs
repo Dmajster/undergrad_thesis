@@ -41,7 +41,7 @@ namespace Assets.Code
                         var packedIndex = index / 32;
                         var bitIndex = index % 32;
 
-                        var isOccupied = (packedUniformVolume.Data[packedIndex] & (1u << bitIndex)) > 0;
+                        var isOccupied = (packedUniformVolume.Voxels[packedIndex] & (1u << bitIndex)) > 0;
 
                         if (isOccupied)
                         {
